@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
+
+  /* Brand — deep pine teal. 沉穩、可信賴，避開 591 的橘紅識別色 */
+  --color-brand-900: #0b2321;
+  --color-brand-800: #0f302e;
+  --color-brand-700: #145250;
+  --color-brand-600: #1c6b69;
+  --color-brand-500: #237f7c;
+  --color-brand-100: #e3efee;
+  --color-brand-50: #f1f7f6;
+
+  /* Accent — 溫潤黃銅，用於價格、CTA、精選標記 */
+  --color-accent-700: #7c5624;
+  --color-accent-600: #96692b;
+  --color-accent-500: #b8863b;
+  --color-accent-100: #f3e8d4;
+
+  /* Ink（文字） */
+  --color-ink-900: #16211f;
+  --color-ink-700: #3f4a48;
+  --color-ink-500: #67716f;
+  --color-ink-300: #9aa3a1;
+
+  /* Surface（背景） */
+  --color-surface: #f7f5f1;
+  --color-surface-alt: #efebe3;
+  --color-surface-dark: #10201f;
+  --color-border: #e3ddd1;
+  --color-border-dark: #24413e;
+
+  /* 狀態色：上架／下架／已成交 */
+  --color-status-live: #2f6b48;
+  --color-status-live-bg: #e2eee6;
+  --color-status-off: #67716f;
+  --color-status-off-bg: #e9e7e2;
+  --color-status-sold: #96692b;
+  --color-status-sold-bg: #f3e8d4;
+
+  --color-danger-600: #a8382f;
+  --color-danger-bg: #f7e6e4;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink-900);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
