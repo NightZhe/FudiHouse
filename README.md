@@ -1,6 +1,6 @@
-# 富地房產
+# 富地房屋
 
-行動版優先的房產出售平台。客戶可以瀏覽、搜尋、收藏富地房產的出售物件；公司人員在後台管理物件，變更會即時反映到前台。
+行動版優先的房產出售平台。客戶可以瀏覽、搜尋、收藏富地房屋的出售物件；公司人員在後台管理物件，變更會即時反映到前台。
 
 - 線上網址：https://nightzhe.github.io/HouseRental/
 - 規格與驗收條件：[`SPEC.md`](SPEC.md)
@@ -44,7 +44,7 @@ src/
 ├── components/
 │   ├── customer/           # 前台頁面與元件
 │   ├── admin/              # 後台頁面與元件
-│   └── layout/Logo.tsx     # 富地房產 logo
+│   └── layout/Logo.tsx     # 富地房屋 logo
 ├── context/                # 物件清單、收藏的 React Context
 ├── services/               # 資料存取層（之後換後端 API 只改這裡）
 │   ├── listingRepository.ts

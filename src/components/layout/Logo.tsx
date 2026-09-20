@@ -7,7 +7,7 @@ interface LogoProps {
 }
 
 /**
- * 富地房產品牌標誌。手繪 SVG：屋頂輪廓＋地基線，代表「安身立地」。
+ * 富地房屋品牌標誌。手繪 SVG：屋頂輪廓＋地基線，代表「安身立地」。
  * 深松綠 + 溫潤黃銅兩色，無漸層與陰影，維持沉穩質感。
  */
 export function Logo({ variant = 'full', tone = 'default', className = '' }: LogoProps) {
@@ -21,7 +21,7 @@ export function Logo({ variant = 'full', tone = 'default', className = '' }: Log
         height="36"
         viewBox="0 0 48 48"
         role="img"
-        aria-label="富地房產標誌"
+        aria-label="富地房屋標誌"
         className="shrink-0"
       >
         <rect x="2" y="2" width="44" height="44" rx="12" className="fill-brand-700" />
@@ -32,7 +32,7 @@ export function Logo({ variant = 'full', tone = 'default', className = '' }: Log
       </svg>
       {variant === 'full' && (
         <div className="flex flex-col leading-none">
-          <span className={`font-black text-lg tracking-wide ${wordmarkColor}`}>富地房產</span>
+          <span className={`font-black text-lg tracking-wide ${wordmarkColor}`}>富地房屋</span>
           <span className={`text-[10px] font-medium tracking-[0.2em] ${taglineColor}`}>FUDI REALTY</span>
         </div>
       )}
