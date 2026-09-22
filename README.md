@@ -2,7 +2,7 @@
 
 行動版優先的房產出售平台。客戶可以瀏覽、搜尋、收藏富地房屋的出售物件；公司人員在後台管理物件，變更會即時反映到前台。
 
-- 線上網址：https://nightzhe.github.io/HouseRental/
+- 線上網址：https://nightzhe.github.io/FudiHouse/
 - 規格與驗收條件：[`SPEC.md`](SPEC.md)
 
 ## 功能
@@ -73,13 +73,13 @@ npm install
 npm run dev
 ```
 
-開啟 http://localhost:5173/HouseRental/
+開啟 http://localhost:5173/FudiHouse/
 
 | 指令 | 說明 |
 |------|------|
 | `npm run dev` | 開發模式 |
 | `npm run build` | 型別檢查＋建置到 `dist/` |
-| `npm run preview` | 預覽建置結果（http://localhost:4173/HouseRental/） |
+| `npm run preview` | 預覽建置結果（http://localhost:4173/FudiHouse/） |
 | `npm run lint` | 只跑 TypeScript 型別檢查 |
 
 ## 部署
@@ -89,7 +89,7 @@ npm run deploy
 ```
 
 會先 build，再把 `dist/` 推到 `gh-pages` 分支（GitHub Pages 的來源），約 1 分鐘後生效。推 `main` 不會自動部署，要手動跑這個指令。
-`vite.config.ts` 的 `base` 必須與 repo 名稱一致（目前是 `/HouseRental/`），改 repo 名稱時要一起改。
+`vite.config.ts` 的 `base` 必須與 repo 名稱一致（目前是 `/FudiHouse/`），改 repo 名稱時要一起改。
 
 `.github/deploy.yml.disabled` 是 GitHub Actions 自動部署設定，目前停用：gh 登入缺 `workflow` 權限時推不上去。
 要改成自動部署，先跑 `gh auth refresh -h github.com -s workflow`，再把檔案移回 `.github/workflows/deploy.yml`，並把 Pages 來源改回 GitHub Actions。

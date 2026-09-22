@@ -1,6 +1,6 @@
 # 富地房屋 — 第一版規格（MVP）
 
-> 2026-09-13 建立。repo：`NightZhe/HouseRental`（public），線上網址 `https://nightzhe.github.io/HouseRental/`
+> 2026-09-13 建立。repo：`NightZhe/FudiHouse`（public），線上網址 `https://nightzhe.github.io/FudiHouse/`
 
 ## 目標
 做一個類似 m.591.com.tw「買屋」頻道的**行動版優先**房產平台，給客戶瀏覽**富地房屋自家的出售物件**；
@@ -9,7 +9,7 @@
 ## 架構（沿用 NightZhe/CarSocialMedia）
 - React 19 + TypeScript + Vite 6 + react-router-dom + lucide-react + Tailwind CSS（npm 安裝，不用 CDN）
 - 前台 / 後台同一個 SPA，用路由切開：前台 `/`、後台 `/admin`
-- **部署在 GitHub Pages**：純靜態，所以用 `HashRouter`（避免子路徑重新整理 404），`vite.config.ts` 的 `base` 設 `/HouseRental/`
+- **部署在 GitHub Pages**：純靜態，所以用 `HashRouter`（避免子路徑重新整理 404），`vite.config.ts` 的 `base` 設 `/FudiHouse/`
 - 資料存在瀏覽器 `localStorage`，首次載入用內建示範資料。
   資料存取集中在一個 repository 模組（例如 `src/services/listingRepository.ts`），
   之後換成真正的後端 API 只需要改這一層。
