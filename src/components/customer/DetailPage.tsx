@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Heart, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { useListings } from '../../context/ListingsContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { ErrorState } from '../layout/AsyncState';
 import {
   buildGoogleMapsUrl,
   buildLineUrl,
@@ -13,25 +14,78 @@ import {
   formatTotalPrice,
   formatUnitPrice,
 } from '../../utils/format';
+import type { Listing } from '../../types';
+
+/** 同一 session 同一物件只加一次瀏覽數（sessionStorage，避免 React StrictMode 重複觸發 effect）。 */
+const VIEWED_STORAGE_KEY = 'fudi_viewed_listings_v1';
+
+function hasMarkedViewed(id: string): boolean {
+  try {
+    const raw = sessionStorage.getItem(VIEWED_STORAGE_KEY);
+    const ids = raw ? (JSON.parse(raw) as string[]) : [];
+    return ids.includes(id);
+  } catch {
+    return false;
+  }
+}
+
+function markViewed(id: string): void {
+  try {
+    const raw = sessionStorage.getItem(VIEWED_STORAGE_KEY);
+    const ids = raw ? (JSON.parse(raw) as string[]) : [];
+    if (!ids.includes(id)) {
+      sessionStorage.setItem(VIEWED_STORAGE_KEY, JSON.stringify([...ids, id]));
+    }
+  } catch {
+    // sessionStorage 不可用（例如隱私瀏覽）就放棄記錄，頂多重複計一次瀏覽數，不影響瀏覽本身。
+  }
+}
 
 export function DetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { getListingById, incrementViews } = useListings();
+  const { getListingById, loading: listingsLoading, incrementViews } = useListings();
   const { isFavorite, toggleFavorite } = useFavorites();
   const navigate = useNavigate();
   const location = useLocation();
-  const listing = id ? getListingById(id) : undefined;
+
+  const contextListing = id ? getListingById(id) : undefined;
+
+  // 清單裡沒有這筆（例如直接用網址進來，或員工分享連結給還沒載入清單的客戶）時，單獨讀一筆。
+  const [fetchedListing, setFetchedListing] = useState<Listing | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [retryTick, setRetryTick] = useState(0);
+  const { fetchListingById } = useListings();
+
+  useEffect(() => {
+    if (!id || contextListing || listingsLoading) return;
+    let cancelled = false;
+    setFetchStatus('loading');
+    fetchListingById(id)
+      .then((result) => {
+        if (cancelled) return;
+        setFetchedListing(result);
+        setFetchStatus('idle');
+      })
+      .catch(() => {
+        if (!cancelled) setFetchStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, contextListing, listingsLoading, fetchListingById, retryTick]);
+
+  const listing = contextListing ?? fetchedListing ?? undefined;
   const isViewable = listing?.status === '上架';
 
-  const viewedIds = useRef(new Set<string>());
   useEffect(() => {
     if (!listing || !isViewable) return;
-    if (viewedIds.current.has(listing.id)) return;
-    viewedIds.current.add(listing.id);
-    incrementViews(listing.id);
-    // 只在物件切換時計一次瀏覽數，不隨 incrementViews 本身重新執行。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing?.id, isViewable]);
+    if (hasMarkedViewed(listing.id)) return;
+    markViewed(listing.id);
+    incrementViews(listing.id).catch((err) => {
+      // 瀏覽數更新失敗不影響瀏覽體驗，記錄下來即可。
+      console.error('瀏覽數更新失敗', err);
+    });
+  }, [listing, isViewable, incrementViews]);
 
   const [photoIndex, setPhotoIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -48,6 +102,29 @@ export function DetailPage() {
   // 有上一頁（例如從找房頁點進來）就回上一頁保留篩選狀態；直接輸入網址進來時沒有上一頁，就回找房頁。
   const canGoBack = location.key !== 'default';
   const goBack = () => (canGoBack ? navigate(-1) : navigate('/list'));
+
+  const isLoading = !listing && (listingsLoading || fetchStatus === 'loading');
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <div className="aspect-[4/3] w-full animate-pulse bg-surface-alt" />
+        <div className="space-y-3 px-5 py-5">
+          <div className="h-5 w-2/3 animate-pulse rounded bg-surface-alt" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-surface-alt" />
+          <div className="h-16 w-full animate-pulse rounded-xl bg-surface-alt" />
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchStatus === 'error') {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center px-6">
+        <ErrorState message="讀取物件失敗，請檢查網路後重試" onRetry={() => setRetryTick((n) => n + 1)} />
+      </div>
+    );
+  }
 
   if (!listing || !isViewable) {
     const message = !listing ? '找不到這個物件' : listing.status === '已成交' ? '此物件已成交' : '此物件已下架';

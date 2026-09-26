@@ -1,25 +1,31 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
-import { verifyAdminPassword } from '../../services/authRepository';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { signInStaff, type AdminSession } from '../../services/authRepository';
 import { Logo } from '../layout/Logo';
 
 interface AdminLoginProps {
-  onLogin: () => void;
+  onLogin: (session: AdminSession) => void;
 }
 
 export function AdminLogin({ onLogin }: AdminLoginProps) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (verifyAdminPassword(password)) {
-      setError('');
-      onLogin();
-    } else {
-      setError('密碼錯誤，請重新輸入');
+    setError('');
+    setSubmitting(true);
+    try {
+      const session = await signInStaff(email.trim(), password);
+      onLogin(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '登入失敗，請稍後再試');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -39,8 +45,30 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
         <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
           <div>
+            <label htmlFor="admin-email" className="mb-2 block text-xs font-semibold uppercase tracking-widest text-white/50">
+              帳號 Email
+            </label>
+            <div className="relative">
+              <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                id="admin-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError('');
+                }}
+                placeholder="staff@example.com"
+                autoComplete="username"
+                autoFocus
+                className="min-h-[44px] w-full rounded-xl border border-white/15 bg-white/10 py-3 pl-10 pr-3 text-sm text-white outline-none placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          <div>
             <label htmlFor="admin-password" className="mb-2 block text-xs font-semibold uppercase tracking-widest text-white/50">
-              管理密碼
+              密碼
             </label>
             <div className="relative">
               <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
@@ -52,8 +80,8 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   setPassword(e.target.value);
                   setError('');
                 }}
-                placeholder="請輸入管理密碼"
-                autoFocus
+                placeholder="請輸入密碼"
+                autoComplete="current-password"
                 className="min-h-[44px] w-full rounded-xl border border-white/15 bg-white/10 py-3 pl-10 pr-12 text-sm text-white outline-none placeholder:text-white/30"
               />
               <button
@@ -70,18 +98,12 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
           <button
             type="submit"
-            disabled={!password}
+            disabled={!email || !password || submitting}
             className="min-h-[44px] w-full rounded-xl bg-brand-500 text-sm font-bold text-white disabled:opacity-40"
           >
-            登入後台
+            {submitting ? '登入中…' : '登入後台'}
           </button>
         </form>
-
-        <div className="mt-6 w-full max-w-sm rounded-xl border border-white/10 bg-white/5 p-4 text-center">
-          <p className="text-xs text-white/40">
-            示範密碼：<span className="font-mono font-bold text-white/70">fudi2026</span>
-          </p>
-        </div>
       </div>
     </div>
   );

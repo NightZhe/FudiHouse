@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { LayoutDashboard, List, LogOut, PlusCircle } from 'lucide-react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useListings } from '../../context/ListingsContext';
+import { signOutStaff } from '../../services/authRepository';
 import { Logo } from '../layout/Logo';
 import { Dashboard } from './Dashboard';
 import { ListingsManager } from './ListingsManager';
@@ -16,6 +17,11 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
   const location = useLocation();
   const isFormRoute = location.pathname === '/admin/new' || location.pathname.startsWith('/admin/edit/');
 
+  const handleLogout = async () => {
+    await signOutStaff();
+    onLogout();
+  };
+
   return (
     <div className="min-h-dvh bg-surface-alt">
       <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-surface-alt shadow-[0_0_0_1px_var(--color-border)]">
@@ -23,7 +29,7 @@ export function AdminLayout({ onLogout }: AdminLayoutProps) {
           <Logo variant="full" />
           <button
             type="button"
-            onClick={onLogout}
+            onClick={handleLogout}
             className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 hover:bg-surface-alt"
             aria-label="登出"
             title="登出"

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { useListings } from '../../context/ListingsContext';
 import { Logo } from '../layout/Logo';
+import { CardGridSkeleton, ErrorState } from '../layout/AsyncState';
 import { ListingCard } from './ListingCard';
 
 const CITY_SHORTCUTS = ['台北市', '新北市', '桃園市', '台中市'];
@@ -13,7 +14,7 @@ const shortcutChipClass =
   'flex min-h-[44px] shrink-0 items-center rounded-full border border-border bg-white px-4 text-sm font-medium text-ink-700 active:scale-95';
 
 export function HomePage() {
-  const { activeListings } = useListings();
+  const { activeListings, loading, error, refetch } = useListings();
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
 
@@ -75,38 +76,50 @@ export function HomePage() {
         </div>
       </section>
 
-      {featured.length > 0 && (
+      {error ? (
         <section className="px-5 py-5">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-base font-bold text-ink-900">精選物件</h2>
-          </div>
-          <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-1 no-scrollbar">
-            {featured.map((listing) => (
-              <div key={listing.id} className="w-64 shrink-0">
-                <ListingCard listing={listing} />
-              </div>
-            ))}
-          </div>
+          <ErrorState message={error} onRetry={refetch} />
         </section>
-      )}
+      ) : loading ? (
+        <section className="px-5 py-5">
+          <CardGridSkeleton />
+        </section>
+      ) : (
+        <>
+          {featured.length > 0 && (
+            <section className="px-5 py-5">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-base font-bold text-ink-900">精選物件</h2>
+              </div>
+              <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-1 no-scrollbar">
+                {featured.map((listing) => (
+                  <div key={listing.id} className="w-64 shrink-0">
+                    <ListingCard listing={listing} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-      <section className="px-5 py-5">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-base font-bold text-ink-900">最新上架</h2>
-          <Link to="/list" className="text-xs font-medium text-brand-700">
-            查看全部
-          </Link>
-        </div>
-        {latest.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {latest.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
-          </div>
-        )}
-      </section>
+          <section className="px-5 py-5">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-base font-bold text-ink-900">最新上架</h2>
+              <Link to="/list" className="text-xs font-medium text-brand-700">
+                查看全部
+              </Link>
+            </div>
+            {latest.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {latest.map((listing) => (
+                  <ListingCard key={listing.id} listing={listing} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       <footer className="px-5 pb-10 pt-4 text-center">
         <Link to="/admin" className="text-xs text-ink-300 underline underline-offset-2">

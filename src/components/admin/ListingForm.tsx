@@ -1,6 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { ChevronLeft, Plus, X } from 'lucide-react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { AlertCircle, ChevronLeft, ChevronsLeft, ChevronsRight, ImagePlus, Loader2, Plus, RotateCcw, X } from 'lucide-react';
 import { useListings } from '../../context/ListingsContext';
+import { deleteListingPhoto, uploadListingPhoto } from '../../services/photoStorage';
 import type { BuildingType, Listing, ListingDraft, ParkingType } from '../../types';
 import { computeUnitPrice } from '../../utils/format';
 import { CITIES, CITY_DISTRICTS } from '../../data/regions';
@@ -34,12 +35,23 @@ interface FormState {
   managementFee: string;
   facing: string;
   tags: string[];
-  description: string;
-  photos: string[];
   contactName: string;
   contactPhone: string;
   contactLineId: string;
   featured: boolean;
+  description: string;
+}
+
+/** 照片項目：上傳中／完成／失敗三態，`key` 是穩定識別碼（與最終網址無關，方便重試與排序）。 */
+interface PhotoItem {
+  key: string;
+  /** 縮圖顯示用網址：上傳中是本機 object URL，完成後是 Supabase 公開網址。 */
+  previewUrl: string;
+  /** 上傳完成後的公開網址；只有這個欄位有值的項目才會被送出表單。 */
+  url: string | null;
+  status: 'uploading' | 'done' | 'error';
+  error?: string;
+  file?: File;
 }
 
 function toFormState(listing: Listing | null): FormState {
@@ -64,12 +76,11 @@ function toFormState(listing: Listing | null): FormState {
       managementFee: '',
       facing: '',
       tags: [],
-      description: '',
-      photos: [],
       contactName: '',
       contactPhone: '',
       contactLineId: '',
       featured: false,
+      description: '',
     };
   }
   return {
@@ -92,13 +103,22 @@ function toFormState(listing: Listing | null): FormState {
     managementFee: listing.managementFee ? String(listing.managementFee) : '',
     facing: listing.facing ?? '',
     tags: listing.tags,
-    description: listing.description,
-    photos: listing.photos,
     contactName: listing.contact.name,
     contactPhone: listing.contact.phone,
     contactLineId: listing.contact.lineId ?? '',
     featured: listing.featured,
+    description: listing.description,
   };
+}
+
+function toInitialPhotos(listing: Listing | null): PhotoItem[] {
+  if (!listing) return [];
+  return listing.photos.map((url) => ({
+    key: url,
+    previewUrl: url,
+    url,
+    status: 'done',
+  }));
 }
 
 const inputClass =
@@ -108,9 +128,12 @@ const labelClass = 'mb-1.5 block text-xs font-semibold text-ink-700';
 export function ListingForm({ initialListing, onDone, onCancel }: ListingFormProps) {
   const { addListing, updateListing } = useListings();
   const [form, setForm] = useState<FormState>(() => toFormState(initialListing));
+  const [photos, setPhotos] = useState<PhotoItem[]>(() => toInitialPhotos(initialListing));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [tagInput, setTagInput] = useState('');
-  const [photoInput, setPhotoInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEditing = initialListing !== null;
   const districts = form.city ? CITY_DISTRICTS[form.city] ?? [] : [];
@@ -131,12 +154,61 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
     setTagInput('');
   };
 
-  const addPhoto = () => {
-    const value = photoInput.trim();
-    if (!value) return;
-    update('photos', [...form.photos, value]);
-    setPhotoInput('');
+  const startUpload = (item: PhotoItem) => {
+    if (!item.file) return;
+    setPhotos((prev) => prev.map((p) => (p.key === item.key ? { ...p, status: 'uploading', error: undefined } : p)));
+    uploadListingPhoto(item.file)
+      .then((url) => {
+        setPhotos((prev) => prev.map((p) => (p.key === item.key ? { ...p, url, previewUrl: url, status: 'done' } : p)));
+      })
+      .catch((err: unknown) => {
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.key === item.key
+              ? { ...p, status: 'error', error: err instanceof Error ? err.message : '上傳失敗' }
+              : p,
+          ),
+        );
+      });
   };
+
+  const handleFilesSelected = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const items: PhotoItem[] = Array.from(fileList).map((file) => ({
+      key: crypto.randomUUID(),
+      previewUrl: URL.createObjectURL(file),
+      url: null,
+      status: 'uploading',
+      file,
+    }));
+    setPhotos((prev) => [...prev, ...items]);
+    items.forEach(startUpload);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removePhoto = (key: string) => {
+    const target = photos.find((p) => p.key === key);
+    setPhotos((prev) => prev.filter((p) => p.key !== key));
+    if (target?.status === 'done' && target.url) {
+      // 刪除自己 bucket 的檔案；示範資料的外部網址（例如 Unsplash）在 photoStorage 裡會被自動略過。
+      deleteListingPhoto(target.url).catch((err) => {
+        console.error('移除照片後清理儲存空間失敗（不影響本次編輯）', err);
+      });
+    }
+  };
+
+  const movePhoto = (index: number, direction: -1 | 1) => {
+    setPhotos((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const uploadingCount = photos.filter((p) => p.status === 'uploading').length;
+  const errorCount = photos.filter((p) => p.status === 'error').length;
 
   const validate = (): boolean => {
     const nextErrors: Partial<Record<string, string>> = {};
@@ -151,12 +223,14 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
         nextErrors.district = '行政區與所選縣市不符，請重新選擇';
       }
     }
+    if (uploadingCount > 0) nextErrors.photos = '照片上傳中，請稍候再送出';
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     if (!validate()) return;
 
     const draft: ListingDraft = {
@@ -182,7 +256,7 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
       facing: form.facing.trim() || undefined,
       tags: form.tags,
       description: form.description.trim(),
-      photos: form.photos,
+      photos: photos.filter((p) => p.status === 'done' && p.url).map((p) => p.url as string),
       contact: {
         name: form.contactName.trim(),
         phone: form.contactPhone.trim(),
@@ -192,12 +266,19 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
       featured: form.featured,
     };
 
-    if (isEditing && initialListing) {
-      updateListing(initialListing.id, draft);
-    } else {
-      addListing(draft);
+    setSaving(true);
+    try {
+      if (isEditing && initialListing) {
+        await updateListing(initialListing.id, draft);
+      } else {
+        await addListing(draft);
+      }
+      onDone();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : '儲存失敗，請稍後再試');
+    } finally {
+      setSaving(false);
     }
-    onDone();
   };
 
   return (
@@ -434,42 +515,93 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
           />
         </Section>
 
-        <Section title="照片網址">
-          <div className="flex gap-2">
-            <input
-              value={photoInput}
-              onChange={(e) => setPhotoInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addPhoto();
-                }
-              }}
-              placeholder="貼上圖片網址"
-              className={inputClass}
-            />
-            <button
-              type="button"
-              onClick={addPhoto}
-              aria-label="新增照片"
-              className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-          {form.photos.length > 0 && (
+        <Section title="物件照片">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => handleFilesSelected(e.target.files)}
+            className="hidden"
+            id="photo-upload-input"
+          />
+          <label
+            htmlFor="photo-upload-input"
+            className="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-white text-sm font-semibold text-brand-700"
+          >
+            <ImagePlus size={18} />
+            拍照或從相簿選擇照片
+          </label>
+
+          {errors.photos && <p className="text-xs font-medium text-danger-600">{errors.photos}</p>}
+          {errorCount > 0 && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-danger-600">
+              <AlertCircle size={13} />
+              {errorCount} 張上傳失敗，可點擊縮圖上的重試按鈕，或移除後重新選擇
+            </p>
+          )}
+
+          {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              {form.photos.map((url, i) => (
-                <div key={url + i} className="relative aspect-square overflow-hidden rounded-lg border border-border">
-                  <img src={url} alt="" className="h-full w-full object-cover" />
+              {photos.map((item, i) => (
+                <div key={item.key} className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-alt">
+                  <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+
+                  {i === 0 && item.status === 'done' && (
+                    <span className="absolute left-1 top-1 rounded-full bg-brand-700 px-2 py-0.5 text-[10px] font-bold text-white">
+                      封面
+                    </span>
+                  )}
+
+                  {item.status === 'uploading' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Loader2 size={20} className="animate-spin text-white" />
+                    </div>
+                  )}
+
+                  {item.status === 'error' && (
+                    <button
+                      type="button"
+                      onClick={() => startUpload(item)}
+                      aria-label="重試上傳"
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-600/80 text-white"
+                    >
+                      <RotateCcw size={16} />
+                      <span className="text-[10px] font-semibold">重試</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => update('photos', form.photos.filter((_, idx) => idx !== i))}
+                    onClick={() => removePhoto(item.key)}
                     aria-label="移除照片"
                     className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
                   >
                     <X size={14} />
                   </button>
+
+                  {photos.length > 1 && item.status !== 'uploading' && (
+                    <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(i, -1)}
+                        disabled={i === 0}
+                        aria-label="往前移動"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
+                      >
+                        <ChevronsLeft size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(i, 1)}
+                        disabled={i === photos.length - 1}
+                        aria-label="往後移動"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
+                      >
+                        <ChevronsRight size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -487,6 +619,12 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
             <input value={form.contactLineId} onChange={(e) => update('contactLineId', e.target.value)} className={inputClass} />
           </Field>
         </Section>
+
+        {submitError && (
+          <p className="rounded-lg border border-danger-600/30 bg-danger-bg px-3 py-2 text-xs font-medium text-danger-600">
+            {submitError}
+          </p>
+        )}
       </div>
 
       <div
@@ -496,8 +634,12 @@ export function ListingForm({ initialListing, onDone, onCancel }: ListingFormPro
         <button type="button" onClick={onCancel} className="min-h-[44px] flex-1 rounded-xl border border-border text-sm font-semibold text-ink-700">
           取消
         </button>
-        <button type="submit" className="min-h-[44px] flex-1 rounded-xl bg-brand-700 text-sm font-bold text-white">
-          {isEditing ? '儲存變更' : '新增物件'}
+        <button
+          type="submit"
+          disabled={saving}
+          className="min-h-[44px] flex-1 rounded-xl bg-brand-700 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {saving ? '儲存中…' : isEditing ? '儲存變更' : '新增物件'}
         </button>
       </div>
     </form>

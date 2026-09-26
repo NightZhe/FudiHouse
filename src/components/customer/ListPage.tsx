@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useListings } from '../../context/ListingsContext';
 import type { Listing, ListPageFilters, ListSortOption } from '../../types';
 import { computeUnitPrice } from '../../utils/format';
+import { CardGridSkeleton, ErrorState } from '../layout/AsyncState';
 import { ListingCard } from './ListingCard';
 import { EMPTY_FILTERS, FilterPanel } from './FilterPanel';
 
@@ -79,7 +80,7 @@ function persistListState(navKey: string, state: StoredListState) {
 }
 
 export function ListPage() {
-  const { activeListings } = useListings();
+  const { activeListings, loading, error, refetch } = useListings();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const restored = loadStoredListState(location.key);
@@ -157,7 +158,9 @@ export function ListPage() {
         </div>
 
         <div className="mt-3 flex items-center justify-between">
-          <p className="text-xs text-ink-500">共 {results.length} 筆物件</p>
+          <p className="text-xs text-ink-500">
+            {error ? ' ' : loading ? '載入中…' : `共 ${results.length} 筆物件`}
+          </p>
           <label className="flex items-center gap-1.5 text-xs text-ink-700">
             排序
             <select
@@ -176,7 +179,11 @@ export function ListPage() {
       </header>
 
       <div className="px-4 py-4">
-        {results.length === 0 ? (
+        {error ? (
+          <ErrorState message={error} onRetry={refetch} />
+        ) : loading ? (
+          <CardGridSkeleton />
+        ) : results.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
             <p className="text-sm font-medium text-ink-500">找不到符合條件的物件</p>
             <p className="mt-1 text-xs text-ink-300">試著放寬篩選條件或更換關鍵字</p>
